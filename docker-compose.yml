@@ -1,0 +1,110 @@
+version: "3.9"
+services:
+  rabbitmq:
+    image: rabbitmq:3.7.2-management
+    container_name: "rabbitmq"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: "zipkin"
+    ports:
+      - "9411:9411"
+  mongodb:
+    image: mongo
+    container_name: "mongodb"
+    command: mongod --auth
+    environment:
+      - MONGO_INITDB_DATABASE=admin
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=root
+    volumes:
+      - type: volume
+        source: mongodb_data_volume
+        target: /data/db
+      - ./config/mongo-init.js:/config/mongo-init.js:ro
+    ports:
+      - "27017:27017"
+  mariadb:
+    image: mariadb:10.4
+    container_name: "mariadb"
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysqlroot
+      - MYSQL_PASSWORD=mysqlpw
+      - MYSQL_USER=test
+      - MYSQL_DATABASE=db_movies
+    volumes:
+      - ./data/dbMariaDB:/var/lib/mysql
+  redis:
+    image: redis
+    container_name: "redis"
+    ports:
+      - "6379:6379"
+  eureka-server:
+    image: eureka-server
+    container_name: "eureka-server"
+    ports:
+      - "8761:8761"
+    restart: always
+  config-server:
+    image: config-server
+    container_name: "config-server"
+    ports:
+      - "8888:8888"
+    restart: always
+    depends_on:
+      - eureka-server
+  api-gateway:
+    image: api-gateway
+    container_name: "api-gateway"
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      - eureka-server
+      - config-server
+  serie-service:
+    image: serie-service
+    container_name: "serie-service"
+    ports:
+      - "8103:8103"
+    restart: always
+    depends_on:
+      - eureka-server
+      - config-server
+      - api-gateway
+      - mongodb
+  movie-service:
+    image: movie-service
+    container_name: "movie-service"
+    ports:
+      - "8102:8102"
+    restart: always
+    depends_on:
+      - eureka-server
+      - config-server
+      - api-gateway
+      - mariadb
+  catalog-service:
+    image: catalog-service
+    container_name: "catalog-service"
+    ports:
+      - "8104:8104"
+    restart: always
+    depends_on:
+      - rabbitmq
+      - eureka-server
+      - config-server
+      - api-gateway
+      - movie-service
+      - serie-service
+volumes:
+  mongodb_data_volume:
+    external: false
+  data: { }
+networks:
+  default:
+    name: tp_final_network
